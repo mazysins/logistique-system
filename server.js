@@ -2,27 +2,21 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
 /* =========================
-   DATABASE (simple)
+   DATABASE
 ========================= */
 let orders = [];
 let stock = {};
 
 /* =========================
-   COLIFLY CONFIG
-⚠️ À REMPLACER SI BESOIN
+   COLIFLY
 ========================= */
 const COLIFLY_API_URL = "https://app.coliflydelivery.com/api/shipments";
 const COLIFLY_API_KEY = "637b43-53ebef-7a4d7d";
-
-/* =========================
-   FETCH FIX (RAILWAY SAFE)
-========================= */
-const fetchFn = (...args) =>
-    import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 /* =========================
    HOME
@@ -32,7 +26,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   WOOCOMMERCE ORDER
+   ORDER FROM WOOCOMMERCE
 ========================= */
 app.post("/order", (req, res) => {
     const data = req.body;
@@ -53,17 +47,17 @@ app.post("/order", (req, res) => {
 
     orders.push(order);
 
-    console.log("📦 ORDER RECEIVED:", order.id);
+    console.log("📦 ORDER:", order.id);
 
     res.json({ ok: true });
 });
 
 /* =========================
-   COLIFLY SHIPPING
+   COLIFLY SHIPPING (FETCH NATIF)
 ========================= */
 async function sendToColifly(order) {
     try {
-        const res = await fetchFn(COLIFLY_API_URL, {
+        const response = await fetch(COLIFLY_API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -77,14 +71,14 @@ async function sendToColifly(order) {
             })
         });
 
-        const data = await res.json();
+        const data = await response.json();
 
         return {
             tracking: data.tracking_number || "PENDING"
         };
 
     } catch (err) {
-        console.log("ColiFly error:", err.message);
+        console.log("COLIFLY ERROR:", err.message);
         return { tracking: "ERROR" };
     }
 }
@@ -105,7 +99,7 @@ app.post("/confirm/:id", async (req, res) => {
 });
 
 /* =========================
-   SCAN USB → SHIP
+   SCAN → SHIP
 ========================= */
 app.post("/ship/:id", (req, res) => {
     const order = orders.find(o =>
@@ -146,32 +140,32 @@ app.get("/orders", (req, res) => res.json(orders));
 app.get("/stock", (req, res) => res.json(stock));
 
 /* =========================
-   ADMIN DASHBOARD (PRO)
+   DASHBOARD
 ========================= */
 app.get("/admin", (req, res) => {
     let html = `
 <!DOCTYPE html>
 <html>
 <head>
-<title>Logistics Dashboard</title>
+<title>Dashboard</title>
 <style>
 body{margin:0;font-family:Arial;background:#0b1220;color:white;}
-.header{padding:15px;background:#111827;font-weight:bold;}
+.header{padding:15px;background:#111827;}
 .container{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;}
 .card{background:#1f2937;padding:10px;border-radius:10px;}
-input{width:100%;padding:12px;border:none;border-radius:8px;}
-.order{background:#111827;padding:8px;margin:5px 0;border-radius:8px;font-size:13px;}
-.badge{background:#10b981;padding:3px 6px;border-radius:5px;font-size:11px;}
+input{width:100%;padding:12px;border-radius:8px;border:none;}
+.order{background:#111827;padding:8px;margin:5px 0;border-radius:8px;}
+.badge{background:#10b981;padding:3px 6px;border-radius:5px;}
 </style>
 </head>
 <body>
 
-<div class="header">📦 Logistics System</div>
+<div class="header">📦 LOGISTICS SYSTEM</div>
 
 <div class="container">
 
 <div class="card">
-<h3>📍 Scan USB</h3>
+<h3>📍 Scan</h3>
 <input id="scan" placeholder="Scan ID..." autofocus />
 </div>
 
@@ -207,7 +201,7 @@ input{width:100%;padding:12px;border:none;border-radius:8px;}
 <script>
 document.getElementById("scan").addEventListener("keypress", function(e){
     if(e.key === "Enter"){
-        fetch("/ship/" + this.value,{method:"POST"})
+        fetch("/ship/" + this.value, {method:"POST"})
         .then(()=>location.reload());
         this.value="";
     }
@@ -222,11 +216,10 @@ document.getElementById("scan").addEventListener("keypress", function(e){
 });
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("🚀 Server running on PORT:", PORT);
-});
+    console.log("🚀 Server running on", PORT);
 });
