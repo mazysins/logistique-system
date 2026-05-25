@@ -9,10 +9,10 @@ let orders = [];
 
 // test route
 app.get("/", (req, res) => {
-    res.send("🚀 Logistics API running");
+    res.send("🚀 Logistics API OK");
 });
 
-// order webhook
+// receive WooCommerce order
 app.post("/order", (req, res) => {
     const data = req.body;
 
@@ -27,12 +27,12 @@ app.post("/order", (req, res) => {
 
     orders.push(order);
 
-    console.log("📦 ORDER:", order.id);
+    console.log("📦 ORDER RECEIVED:", order.id);
 
     res.json({ ok: true });
 });
 
-// confirm
+// confirm order
 app.post("/confirm/:id", (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
@@ -44,14 +44,14 @@ app.post("/confirm/:id", (req, res) => {
     res.json(order);
 });
 
-// orders list
+// list orders
 app.get("/orders", (req, res) => {
     res.json(orders);
 });
 
-// 🚨 IMPORTANT FIX RAILWAY
+// 🚨 IMPORTANT RAILWAY FIX (NE JAMAIS METTRE 8080)
 const PORT = process.env.PORT;
 
-app.listen(PORT, () => {
-    console.log("🚀 Server running on port " + PORT);
+app.listen(PORT, "0.0.0.0", () => {
+    console.log("🚀 Server running on PORT:", PORT);
 });
