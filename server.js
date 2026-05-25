@@ -51,6 +51,8 @@ app.get("/orders", (req, res) => {
 
 // dashboard admin
 app.get("/admin", (req, res) => {
+    res.send("ADMIN OK");
+});
     let html = `
     <html>
     <head>
