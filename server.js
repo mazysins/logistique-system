@@ -7,13 +7,13 @@ app.use(cors());
 app.use(express.json());
 
 /* =========================
-   DATABASE
+   MEMORY DB
 ========================= */
 let orders = [];
 let stock = {};
 
 /* =========================
-   COLIFLY
+   CONFIG COLIFLY
 ========================= */
 const COLIFLY_API_URL = "https://app.coliflydelivery.com/api/shipments";
 const COLIFLY_API_KEY = "637b43-53ebef-7a4d7d";
@@ -26,7 +26,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   ORDER FROM WOOCOMMERCE
+   ORDER WOOCOMMERCE
 ========================= */
 app.post("/order", (req, res) => {
     const data = req.body;
@@ -38,22 +38,22 @@ app.post("/order", (req, res) => {
     const order = {
         id: data.id,
         productId,
-        name: data.billing?.first_name + " " + data.billing?.last_name,
-        phone: data.billing?.phone,
-        address: data.shipping?.address_1,
+        name: (data.billing?.first_name || "") + " " + (data.billing?.last_name || ""),
+        phone: data.billing?.phone || "",
+        address: data.shipping?.address_1 || "",
         status: "pending",
         tracking: null
     };
 
     orders.push(order);
 
-    console.log("📦 ORDER:", order.id);
+    console.log("📦 ORDER RECEIVED:", order.id);
 
     res.json({ ok: true });
 });
 
 /* =========================
-   COLIFLY SHIPPING (FETCH NATIF)
+   COLIFLY (SAFE FETCH ONLY)
 ========================= */
 async function sendToColifly(order) {
     try {
@@ -74,7 +74,7 @@ async function sendToColifly(order) {
         const data = await response.json();
 
         return {
-            tracking: data.tracking_number || "PENDING"
+            tracking: data?.tracking_number || "PENDING"
         };
 
     } catch (err) {
@@ -84,7 +84,7 @@ async function sendToColifly(order) {
 }
 
 /* =========================
-   CONFIRM ORDER
+   CONFIRM
 ========================= */
 app.post("/confirm/:id", async (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
@@ -99,7 +99,7 @@ app.post("/confirm/:id", async (req, res) => {
 });
 
 /* =========================
-   SCAN → SHIP
+   SHIP (SCAN)
 ========================= */
 app.post("/ship/:id", (req, res) => {
     const order = orders.find(o =>
@@ -140,7 +140,7 @@ app.get("/orders", (req, res) => res.json(orders));
 app.get("/stock", (req, res) => res.json(stock));
 
 /* =========================
-   DASHBOARD
+   ADMIN (SIMPLE + STABLE)
 ========================= */
 app.get("/admin", (req, res) => {
     let html = `
@@ -155,7 +155,6 @@ body{margin:0;font-family:Arial;background:#0b1220;color:white;}
 .card{background:#1f2937;padding:10px;border-radius:10px;}
 input{width:100%;padding:12px;border-radius:8px;border:none;}
 .order{background:#111827;padding:8px;margin:5px 0;border-radius:8px;}
-.badge{background:#10b981;padding:3px 6px;border-radius:5px;}
 </style>
 </head>
 <body>
@@ -187,9 +186,8 @@ input{width:100%;padding:12px;border-radius:8px;border:none;}
     orders.slice().reverse().forEach(o => {
         html += `
         <div class="order">
-        <b>#${o.id}</b> - ${o.name}<br/>
-        Status: <span class="badge">${o.status}</span><br/>
-        Tracking: ${o.tracking || "N/A"}
+        #${o.id} - ${o.name}<br/>
+        ${o.status} | ${o.tracking || "N/A"}
         </div>`;
     });
 
@@ -216,10 +214,10 @@ document.getElementById("scan").addEventListener("keypress", function(e){
 });
 
 /* =========================
-   START
+   START (CRITICAL FIX)
 ========================= */
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("🚀 Server running on", PORT);
+    console.log("🚀 Server running on PORT", PORT);
 });
