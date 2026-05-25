@@ -5,24 +5,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ======================
+// DATABASE (memory)
+// ======================
 let orders = [];
+let stock = {};
 
-// test route
+// ======================
+// COLIFLY CONFIG
+// ======================
+const COLIFLY_API_URL = "https://app.coliflydelivery.com/api/shipments";
+const COLIFLY_API_KEY = "637b43-53ebef-7a4d7d-406b2f-3063b5";
+
+// ======================
+// HOME TEST
+// ======================
 app.get("/", (req, res) => {
     res.send("🚀 Logistics API OK");
 });
 
-// receive WooCommerce order
+// ======================
+// WOOCOMMERCE ORDER
+// ======================
 app.post("/order", (req, res) => {
     const data = req.body;
 
+    const productId = data.line_items?.[0]?.product_id || "unknown";
+
+    stock[productId] = (stock[productId] || 0) + 1;
+
     const order = {
         id: data.id,
+        productId,
         name: data.billing?.first_name + " " + data.billing?.last_name,
         phone: data.billing?.phone,
         address: data.shipping?.address_1,
         status: "pending",
-        tracking: null
+        tracking: null,
+        label: null
     };
 
     orders.push(order);
@@ -32,62 +52,170 @@ app.post("/order", (req, res) => {
     res.json({ ok: true });
 });
 
-// confirm order
-app.post("/confirm/:id", (req, res) => {
+// ======================
+// COLIFLY FUNCTION
+// ======================
+async function sendToColifly(order) {
+    try {
+        const response = await fetch(COLIFLY_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + COLIFLY_API_KEY
+            },
+            body: JSON.stringify({
+                recipient_name: order.name,
+                phone: order.phone,
+                address: order.address,
+                reference: order.id,
+                cash_on_delivery: true
+            })
+        });
+
+        const data = await response.json();
+
+        return {
+            tracking: data.tracking_number || "PENDING",
+            label: data.label_url || null
+        };
+
+    } catch (err) {
+        console.log("Colifly error:", err.message);
+        return { tracking: "ERROR", label: null };
+    }
+}
+
+// ======================
+// CONFIRM ORDER → SEND COLIFLY
+// ======================
+app.post("/confirm/:id", async (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
     if (!order) return res.status(404).send("not found");
 
     order.status = "confirmed";
-    order.tracking = "TRK" + Math.floor(Math.random() * 999999);
+
+    const delivery = await sendToColifly(order);
+
+    order.tracking = delivery.tracking;
+    order.label = delivery.label;
+
+    console.log("🚚 SENT TO COLIFLY:", order.id);
 
     res.json(order);
 });
 
-// list orders
+// ======================
+// SHIP (SCAN USB)
+// ======================
+app.post("/ship/:id", (req, res) => {
+    const order = orders.find(o => o.id == req.params.id);
+
+    if (!order) return res.status(404).send("not found");
+
+    order.status = "shipped";
+
+    if (order.productId) {
+        stock[order.productId] = (stock[order.productId] || 0) - 1;
+    }
+
+    console.log("🚚 SHIPPED:", order.id);
+
+    res.json(order);
+});
+
+// ======================
+// RETURN
+// ======================
+app.post("/return/:id", (req, res) => {
+    const order = orders.find(o => o.id == req.params.id);
+
+    if (!order) return res.status(404).send("not found");
+
+    order.status = "returned";
+
+    if (order.productId) {
+        stock[order.productId] = (stock[order.productId] || 0) + 1;
+    }
+
+    res.json(order);
+});
+
+// ======================
+// LIST ORDERS
+// ======================
 app.get("/orders", (req, res) => {
     res.json(orders);
 });
 
-// dashboard admin
-app.get("/admin", (req, res) => {
-    res.send("ADMIN OK");
+// ======================
+// STOCK
+// ======================
+app.get("/stock", (req, res) => {
+    res.json(stock);
 });
+
+// ======================
+// DASHBOARD
+// ======================
+app.get("/admin", (req, res) => {
     let html = `
     <html>
     <head>
-        <title>Logistics Dashboard</title>
+        <title>Dashboard Logistique</title>
         <style>
             body { font-family: Arial; padding: 20px; background: #f4f4f4; }
             .card { background: white; padding: 10px; margin: 10px 0; border-radius: 10px; }
-            .status { font-weight: bold; color: green; }
         </style>
     </head>
     <body>
-        <h1>📦 Dashboard Logistique</h1>
+
+    <h1>📦 Dashboard Logistique</h1>
+
+    <h3>📍 Scan colis (USB)</h3>
+    <input id="scan" placeholder="Scan ID..." autofocus />
+
+    <hr/>
     `;
 
     orders.forEach(o => {
         html += `
         <div class="card">
             <p><b>ID:</b> ${o.id}</p>
-            <p><b>Nom:</b> ${o.name}</p>
-            <p><b>Téléphone:</b> ${o.phone}</p>
-            <p><b>Adresse:</b> ${o.address}</p>
-            <p><b>Status:</b> <span class="status">${o.status}</span></p>
+            <p><b>Name:</b> ${o.name}</p>
+            <p><b>Status:</b> ${o.status}</p>
             <p><b>Tracking:</b> ${o.tracking || "N/A"}</p>
         </div>
         `;
     });
 
+    html += `<h3>📊 Stock</h3>`;
+
+    for (let k in stock) {
+        html += `<p>${k} : ${stock[k]}</p>`;
+    }
+
     html += `
+    <script>
+        document.getElementById("scan").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                fetch("/ship/" + this.value, { method: "POST" })
+                .then(() => location.reload());
+                this.value = "";
+            }
+        });
+    </script>
+
     </body>
     </html>
     `;
 
     res.send(html);
 });
-// 🚨 IMPORTANT RAILWAY FIX (NE JAMAIS METTRE 8080)
+
+// ======================
+// START SERVER
+// ======================
 const PORT = process.env.PORT;
 
 app.listen(PORT, "0.0.0.0", () => {
