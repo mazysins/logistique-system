@@ -49,6 +49,42 @@ app.get("/orders", (req, res) => {
     res.json(orders);
 });
 
+// dashboard admin
+app.get("/admin", (req, res) => {
+    let html = `
+    <html>
+    <head>
+        <title>Logistics Dashboard</title>
+        <style>
+            body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+            .card { background: white; padding: 10px; margin: 10px 0; border-radius: 10px; }
+            .status { font-weight: bold; color: green; }
+        </style>
+    </head>
+    <body>
+        <h1>📦 Dashboard Logistique</h1>
+    `;
+
+    orders.forEach(o => {
+        html += `
+        <div class="card">
+            <p><b>ID:</b> ${o.id}</p>
+            <p><b>Nom:</b> ${o.name}</p>
+            <p><b>Téléphone:</b> ${o.phone}</p>
+            <p><b>Adresse:</b> ${o.address}</p>
+            <p><b>Status:</b> <span class="status">${o.status}</span></p>
+            <p><b>Tracking:</b> ${o.tracking || "N/A"}</p>
+        </div>
+        `;
+    });
+
+    html += `
+    </body>
+    </html>
+    `;
+
+    res.send(html);
+});
 // 🚨 IMPORTANT RAILWAY FIX (NE JAMAIS METTRE 8080)
 const PORT = process.env.PORT;
 
