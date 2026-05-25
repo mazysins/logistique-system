@@ -5,28 +5,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ======================
-// DATABASE (memory)
-// ======================
+/* =========================
+   DATABASE (MEMOIRE)
+========================= */
 let orders = [];
 let stock = {};
 
-// ======================
-// COLIFLY CONFIG
-// ======================
+/* =========================
+   COLIFLY CONFIG
+========================= */
 const COLIFLY_API_URL = "https://app.coliflydelivery.com/api/shipments";
-const COLIFLY_API_KEY = "637b43-53ebef-7a4d7d-406b2f-3063b5";
+const COLIFLY_API_KEY = "637b43-53ebef-7a4d7d-406b2f";
 
-// ======================
-// HOME TEST
-// ======================
+/* =========================
+   FETCH SAFE (IMPORTANT RAILWAY FIX)
+========================= */
+const fetchFn = (...args) =>
+    import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+/* =========================
+   HOME TEST
+========================= */
 app.get("/", (req, res) => {
     res.send("🚀 Logistics API OK");
 });
 
-// ======================
-// WOOCOMMERCE ORDER
-// ======================
+/* =========================
+   RECEIVE WOOCOMMERCE ORDER
+========================= */
 app.post("/order", (req, res) => {
     const data = req.body;
 
@@ -52,12 +58,12 @@ app.post("/order", (req, res) => {
     res.json({ ok: true });
 });
 
-// ======================
-// COLIFLY FUNCTION
-// ======================
+/* =========================
+   COLIFLY SHIPPING
+========================= */
 async function sendToColifly(order) {
     try {
-        const response = await fetch(COLIFLY_API_URL, {
+        const response = await fetchFn(COLIFLY_API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -80,14 +86,18 @@ async function sendToColifly(order) {
         };
 
     } catch (err) {
-        console.log("Colifly error:", err.message);
-        return { tracking: "ERROR", label: null };
+        console.log("❌ COLIFLY ERROR:", err.message);
+
+        return {
+            tracking: "ERROR",
+            label: null
+        };
     }
 }
 
-// ======================
-// CONFIRM ORDER → SEND COLIFLY
-// ======================
+/* =========================
+   CONFIRM ORDER → SEND COLIFLY
+========================= */
 app.post("/confirm/:id", async (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
@@ -105,9 +115,9 @@ app.post("/confirm/:id", async (req, res) => {
     res.json(order);
 });
 
-// ======================
-// SHIP (SCAN USB)
-// ======================
+/* =========================
+   SCAN USB → SHIP
+========================= */
 app.post("/ship/:id", (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
@@ -124,9 +134,9 @@ app.post("/ship/:id", (req, res) => {
     res.json(order);
 });
 
-// ======================
-// RETURN
-// ======================
+/* =========================
+   RETURN
+========================= */
 app.post("/return/:id", (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
@@ -141,28 +151,28 @@ app.post("/return/:id", (req, res) => {
     res.json(order);
 });
 
-// ======================
-// LIST ORDERS
-// ======================
+/* =========================
+   ORDERS LIST
+========================= */
 app.get("/orders", (req, res) => {
     res.json(orders);
 });
 
-// ======================
-// STOCK
-// ======================
+/* =========================
+   STOCK
+========================= */
 app.get("/stock", (req, res) => {
     res.json(stock);
 });
 
-// ======================
-// DASHBOARD
-// ======================
+/* =========================
+   ADMIN DASHBOARD
+========================= */
 app.get("/admin", (req, res) => {
     let html = `
     <html>
     <head>
-        <title>Dashboard Logistique</title>
+        <title>Logistics Dashboard</title>
         <style>
             body { font-family: Arial; padding: 20px; background: #f4f4f4; }
             .card { background: white; padding: 10px; margin: 10px 0; border-radius: 10px; }
@@ -213,10 +223,10 @@ app.get("/admin", (req, res) => {
     res.send(html);
 });
 
-// ======================
-// START SERVER
-// ======================
-const PORT = process.env.PORT;
+/* =========================
+   START SERVER (RAILWAY SAFE)
+========================= */
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
     console.log("🚀 Server running on PORT:", PORT);
