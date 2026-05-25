@@ -7,12 +7,12 @@ app.use(express.json());
 
 let orders = [];
 
-// TEST ROUTE (OBLIGATOIRE)
+// test route
 app.get("/", (req, res) => {
-    res.status(200).send("🚀 Logistics API is running");
+    res.send("🚀 Logistics API running");
 });
 
-// RECEIVE ORDER FROM WOOCOMMERCE
+// order webhook
 app.post("/order", (req, res) => {
     const data = req.body;
 
@@ -27,18 +27,16 @@ app.post("/order", (req, res) => {
 
     orders.push(order);
 
-    console.log("📦 ORDER RECEIVED:", order.id);
+    console.log("📦 ORDER:", order.id);
 
-    res.json({ success: true });
+    res.json({ ok: true });
 });
 
-// CONFIRM ORDER
+// confirm
 app.post("/confirm/:id", (req, res) => {
     const order = orders.find(o => o.id == req.params.id);
 
-    if (!order) {
-        return res.status(404).json({ error: "Not found" });
-    }
+    if (!order) return res.status(404).send("not found");
 
     order.status = "confirmed";
     order.tracking = "TRK" + Math.floor(Math.random() * 999999);
@@ -46,17 +44,14 @@ app.post("/confirm/:id", (req, res) => {
     res.json(order);
 });
 
-// GET ORDERS
+// orders list
 app.get("/orders", (req, res) => {
     res.json(orders);
 });
 
-// 🔥 IMPORTANT RAILWAY FIX
+// 🚨 IMPORTANT FIX RAILWAY
 const PORT = process.env.PORT;
 
-app.listen(PORT, "0.0.0.0", () => {
-    console.log("🚀 Server running on port " + PORT);
-});
 app.listen(PORT, () => {
     console.log("🚀 Server running on port " + PORT);
 });
